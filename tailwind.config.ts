@@ -14,7 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        cairo: ['Cairo', 'sans-serif'],
+        inter: ['Inter', 'sans-serif'],
+        display: ['Inter', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -62,13 +63,6 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        teal: {
-          DEFAULT: "hsl(var(--teal))",
-          light: "hsl(var(--teal-light))",
-          dark: "hsl(var(--teal-dark))",
-        },
-        gold: "hsl(var(--gold))",
-        navy: "hsl(var(--navy))",
       },
       borderRadius: {
         lg: "var(--radius)",
