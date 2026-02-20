@@ -11,6 +11,9 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import { AIChatbot } from "./components/AIChatbot";
+import PatientAuth from "./pages/PatientAuth";
+import PatientPortal from "./pages/PatientPortal";
+import DoctorView from "./pages/DoctorView";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +30,9 @@ const App = () => (
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/patient-auth" element={<PatientAuth />} />
+          <Route path="/patient-portal" element={<PatientPortal />} />
+          <Route path="/doctor-view" element={<DoctorView />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -70,7 +70,7 @@ export default function Home() {
                   <Link to="/doctors">Find a Doctor</Link>
                 </Button>
                 <Button asChild variant="outline" size="lg">
-                  <Link to="/appointments">Patient Portal Login</Link>
+                  <Link to="/patient-auth">Patient Portal Login</Link>
                 </Button>
               </div>
               <div className="flex gap-6 mt-4 pt-6 border-t border-border">
