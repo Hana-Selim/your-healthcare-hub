@@ -201,7 +201,9 @@ export default function Doctors() {
                   <Button asChild className="w-full">
                     <Link to="/appointments">Book Appointment</Link>
                   </Button>
-                  <Button variant="outline" className="w-full">View Profile</Button>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to={`/doctors/${doctor.id}`}>View Profile</Link>
+                  </Button>
                 </div>
               </div>
             </div>

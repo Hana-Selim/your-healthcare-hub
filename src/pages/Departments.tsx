@@ -133,10 +133,10 @@ export default function Departments() {
                   <p className="text-muted-foreground text-sm leading-relaxed">{dept.desc}</p>
                 </div>
                 <div className="mt-auto pt-2 flex items-center gap-4">
-                  <Link to={`/departments`} className="text-sm font-bold text-primary hover:underline">
+                  <Link to={`/departments/${dept.name.toLowerCase()}`} className="text-sm font-bold text-primary hover:underline">
                     Learn More
                   </Link>
-                  <span className="text-slate-300">|</span>
+                  <span className="text-border">|</span>
                   <Link to="/appointments" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
                     Book Appointment
                   </Link>
