@@ -14,6 +14,8 @@ import { AIChatbot } from "./components/AIChatbot";
 import PatientAuth from "./pages/PatientAuth";
 import PatientPortal from "./pages/PatientPortal";
 import DoctorView from "./pages/DoctorView";
+import DoctorProfile from "./pages/DoctorProfile";
+import DepartmentDetail from "./pages/DepartmentDetail";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +28,9 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/departments" element={<Departments />} />
+          <Route path="/departments/:slug" element={<DepartmentDetail />} />
           <Route path="/doctors" element={<Doctors />} />
+          <Route path="/doctors/:id" element={<DoctorProfile />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
