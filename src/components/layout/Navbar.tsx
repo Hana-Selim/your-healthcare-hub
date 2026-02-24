@@ -8,6 +8,7 @@ const navLinks = [
   { href: "/doctors", label: "Find a Doctor" },
   { href: "/departments", label: "Specialties" },
   { href: "/appointments", label: "Appointments" },
+  { href: "/eye-diagnosis", label: "AI Eye Scan" },
   { href: "/about", label: "About Us" },
   { href: "/contact", label: "Contact" },
 ];
@@ -30,10 +31,12 @@ export function Navbar() {
             </span>
           </div>
           <div className="flex gap-6 font-medium">
-            <a href="#" className="hover:text-white/80 transition-colors flex items-center gap-1">
+            <Link to="/patient-auth" className="hover:text-white/80 transition-colors flex items-center gap-1">
               Patient Portal <ExternalLink className="w-3 h-3" />
-            </a>
-            <a href="#" className="hover:text-white/80 transition-colors">Pay Bill Online</a>
+            </Link>
+            <Link to="/doctor-auth" className="hover:text-white/80 transition-colors flex items-center gap-1">
+              Doctor Portal <ExternalLink className="w-3 h-3" />
+            </Link>
             <a href="#" className="hover:text-white/80 transition-colors">Careers</a>
           </div>
         </div>

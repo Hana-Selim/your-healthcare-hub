@@ -2,3 +2,6 @@ project_id = "tdoxuhwfqxduluoyzvzt"
 
 [functions.qr-scan]
 verify_jwt = false
+
+[functions.eye-diagnosis]
+verify_jwt = false

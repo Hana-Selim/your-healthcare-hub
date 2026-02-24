@@ -16,6 +16,9 @@ import PatientPortal from "./pages/PatientPortal";
 import DoctorView from "./pages/DoctorView";
 import DoctorProfile from "./pages/DoctorProfile";
 import DepartmentDetail from "./pages/DepartmentDetail";
+import DoctorAuth from "./pages/DoctorAuth";
+import DoctorDashboard from "./pages/DoctorDashboard";
+import EyeDiagnosis from "./pages/EyeDiagnosis";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +40,9 @@ const App = () => (
           <Route path="/patient-auth" element={<PatientAuth />} />
           <Route path="/patient-portal" element={<PatientPortal />} />
           <Route path="/doctor-view" element={<DoctorView />} />
+          <Route path="/doctor-auth" element={<DoctorAuth />} />
+          <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+          <Route path="/eye-diagnosis" element={<EyeDiagnosis />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

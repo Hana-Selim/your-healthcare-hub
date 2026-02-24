@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { Loader2, Heart, User, Mail, Lock, Phone, Calendar } from "lucide-react";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any;
+
 type Mode = "login" | "register" | "verify";
 
 export default function PatientAuth() {
@@ -65,9 +68,7 @@ export default function PatientAuth() {
     }
 
     if (data.user) {
-      // Create patient profile - using any to bypass type check until DB is created
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = supabase as any;
+      // Create patient profile
       const { error: profileError } = await db.from("patient_profiles").insert({
         user_id: data.user.id,
         full_name: form.full_name,
@@ -111,7 +112,6 @@ export default function PatientAuth() {
     <Layout>
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full">
-          {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Heart className="w-9 h-9 text-primary" />
@@ -122,7 +122,6 @@ export default function PatientAuth() {
             </p>
           </div>
 
-          {/* Tabs */}
           <div className="flex rounded-lg bg-muted p-1 mb-8">
             <button
               className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${mode === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
@@ -155,10 +154,7 @@ export default function PatientAuth() {
                   <div className="space-y-2">
                     <Label htmlFor="blood_type">فصيلة الدم</Label>
                     <select
-                      id="blood_type"
-                      name="blood_type"
-                      value={form.blood_type}
-                      onChange={handleChange}
+                      id="blood_type" name="blood_type" value={form.blood_type} onChange={handleChange}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <option value="">اختر</option>
