@@ -247,8 +247,11 @@ export type Database = {
       patient_profiles: {
         Row: {
           address: string | null
+          age: number | null
           blood_type: string | null
+          chronic_diseases: string | null
           created_at: string
+          current_medications: string | null
           date_of_birth: string | null
           emergency_contact: string | null
           emergency_phone: string | null
@@ -260,8 +263,11 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          age?: number | null
           blood_type?: string | null
+          chronic_diseases?: string | null
           created_at?: string
+          current_medications?: string | null
           date_of_birth?: string | null
           emergency_contact?: string | null
           emergency_phone?: string | null
@@ -273,8 +279,11 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          age?: number | null
           blood_type?: string | null
+          chronic_diseases?: string | null
           created_at?: string
+          current_medications?: string | null
           date_of_birth?: string | null
           emergency_contact?: string | null
           emergency_phone?: string | null

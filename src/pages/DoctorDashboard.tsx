@@ -3,9 +3,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Stethoscope, Calendar, Users, CheckCircle, Clock, XCircle,
-  LogOut, Home, User, BarChart3, Loader2, Menu, X
+  LogOut, Home, User, BarChart3, Loader2, Menu, X, QrCode, Eye, Save
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +35,57 @@ interface Appointment {
   created_at: string;
 }
 
-type Tab = "overview" | "appointments" | "profile";
+interface ScannedPatient {
+  id: string;
+  full_name: string;
+  age: number | null;
+  blood_type: string | null;
+  chronic_diseases: string | null;
+  current_medications: string | null;
+  phone: string | null;
+}
+
+type Tab = "overview" | "appointments" | "scanner" | "profile";
+
+// Mock appointments for demo
+const mockAppointments: Appointment[] = [
+  {
+    id: "mock-1",
+    patient_name: "Ahmed Hassan",
+    patient_email: "ahmed@example.com",
+    patient_phone: "01012345678",
+    appointment_date: new Date().toISOString().split("T")[0],
+    appointment_time: "09:00 AM",
+    status: "confirmed",
+    reason: "Follow-up visit",
+    notes: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "mock-2",
+    patient_name: "Sara Mohamed",
+    patient_email: "sara@example.com",
+    patient_phone: "01098765432",
+    appointment_date: new Date().toISOString().split("T")[0],
+    appointment_time: "10:30 AM",
+    status: "pending",
+    reason: "Initial consultation",
+    notes: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "mock-3",
+    patient_name: "Omar Ali",
+    patient_email: null,
+    patient_phone: "01155556666",
+    appointment_date: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+    appointment_time: "02:00 PM",
+    status: "pending",
+    reason: "Chest pain",
+    notes: null,
+    created_at: new Date().toISOString(),
+  },
+];
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
@@ -44,13 +96,22 @@ export default function DoctorDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Scanner state
+  const [scannedPatient, setScannedPatient] = useState<ScannedPatient | null>(null);
+  const [diagnosisNotes, setDiagnosisNotes] = useState("");
+  const [prescribedMeds, setPrescribedMeds] = useState("");
+  const [savingRecord, setSavingRecord] = useState(false);
+  const [qrInput, setQrInput] = useState("");
+
   const fetchAppointments = useCallback(async (doctorId: string) => {
     const { data } = await db
       .from("appointments")
       .select("*")
       .eq("doctor_id", doctorId)
       .order("appointment_date", { ascending: true });
-    if (data) setAppointments(data);
+    // Merge real + mock data
+    const realData = data || [];
+    setAppointments([...realData, ...mockAppointments]);
   }, []);
 
   useEffect(() => {
@@ -58,7 +119,6 @@ export default function DoctorDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate("/doctor-auth"); return; }
 
-      // Check doctor role
       const { data: roles } = await db.from("user_roles").select("role").eq("user_id", session.user.id);
       if (!roles?.some((r: any) => r.role === "doctor")) {
         toast({ title: "Access Denied", variant: "destructive" });
@@ -66,7 +126,6 @@ export default function DoctorDashboard() {
         return;
       }
 
-      // Get doctor profile
       const { data: prof } = await db.from("doctor_profiles").select("*").eq("user_id", session.user.id).maybeSingle();
       if (!prof) {
         toast({ title: "Doctor profile not found", variant: "destructive" });
@@ -94,6 +153,11 @@ export default function DoctorDashboard() {
   }, [profile, fetchAppointments]);
 
   const updateStatus = async (id: string, status: string) => {
+    if (id.startsWith("mock-")) {
+      setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+      toast({ title: `Appointment ${status}` });
+      return;
+    }
     setUpdatingId(id);
     const { error } = await db.from("appointments").update({ status }).eq("id", id);
     if (error) toast({ title: "Error updating", variant: "destructive" });
@@ -107,6 +171,86 @@ export default function DoctorDashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/doctor-auth");
+  };
+
+  // QR Scanner - scan by token input (camera-based scanning needs html5-qrcode which we avoid)
+  const handleScanByToken = async () => {
+    if (!qrInput.trim()) return;
+    
+    // Try to parse as JSON (direct QR payload)
+    try {
+      const parsed = JSON.parse(qrInput);
+      if (parsed.token) {
+        await lookupByToken(parsed.token);
+        return;
+      }
+    } catch { /* not JSON, try as URL or token */ }
+
+    // Try extracting token from URL
+    const urlMatch = qrInput.match(/token=([a-f0-9]+)/);
+    if (urlMatch) {
+      await lookupByToken(urlMatch[1]);
+      return;
+    }
+
+    // Try as raw token
+    await lookupByToken(qrInput.trim());
+  };
+
+  const lookupByToken = async (token: string) => {
+    const { data: qr, error } = await db
+      .from("patient_qr_codes")
+      .select("patient_id")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (error || !qr) {
+      toast({ title: "Patient not found", description: "Invalid QR code or token", variant: "destructive" });
+      return;
+    }
+
+    const { data: patient } = await db
+      .from("patient_profiles")
+      .select("id, full_name, age, blood_type, chronic_diseases, current_medications, phone")
+      .eq("id", qr.patient_id)
+      .maybeSingle();
+
+    if (patient) {
+      setScannedPatient(patient as ScannedPatient);
+      setDiagnosisNotes("");
+      setPrescribedMeds("");
+      toast({ title: "Patient found!", description: patient.full_name });
+    } else {
+      toast({ title: "Patient profile not found", variant: "destructive" });
+    }
+  };
+
+  const handleSaveRecord = async () => {
+    if (!scannedPatient || !profile) return;
+    if (!diagnosisNotes.trim()) {
+      toast({ title: "Please enter diagnosis notes", variant: "destructive" });
+      return;
+    }
+    setSavingRecord(true);
+
+    const { error } = await db.from("medical_records").insert({
+      patient_id: scannedPatient.id,
+      doctor_id: profile.id,
+      doctor_name: profile.full_name,
+      department: profile.department || profile.specialty,
+      diagnosis: diagnosisNotes.trim(),
+      medications: prescribedMeds.trim() || null,
+      created_by: "doctor_scan",
+    });
+
+    if (error) {
+      toast({ title: "Error saving record", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Medical record saved successfully!" });
+      setDiagnosisNotes("");
+      setPrescribedMeds("");
+    }
+    setSavingRecord(false);
   };
 
   if (loading) {
@@ -132,6 +276,7 @@ export default function DoctorDashboard() {
   const sidebarItems = [
     { key: "overview" as Tab, label: "Overview", icon: BarChart3 },
     { key: "appointments" as Tab, label: "Appointments", icon: Calendar },
+    { key: "scanner" as Tab, label: "QR Scanner", icon: QrCode },
     { key: "profile" as Tab, label: "My Profile", icon: User },
   ];
 
@@ -198,7 +343,7 @@ export default function DoctorDashboard() {
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden">
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-bold text-foreground capitalize">{activeTab}</h1>
+            <h1 className="text-lg font-bold text-foreground capitalize">{activeTab === "scanner" ? "QR Scanner" : activeTab}</h1>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
@@ -264,6 +409,86 @@ export default function DoctorDashboard() {
                   {appointments.map((apt) => (
                     <AppointmentRow key={apt.id} apt={apt} statusBadge={statusBadge} updateStatus={updateStatus} updatingId={updatingId} />
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* QR Scanner */}
+          {activeTab === "scanner" && (
+            <div className="space-y-6 max-w-3xl">
+              {/* Scan Input */}
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                  <QrCode className="w-5 h-5 text-primary" /> Scan Patient QR Code
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Enter the patient's QR token or paste the full QR URL to look up their medical profile.
+                </p>
+                <div className="flex gap-3">
+                  <Input
+                    placeholder="Paste QR token or URL here..."
+                    value={qrInput}
+                    onChange={(e) => setQrInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleScanByToken()}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleScanByToken} className="gap-2">
+                    <Eye className="w-4 h-4" /> Look Up
+                  </Button>
+                </div>
+              </div>
+
+              {/* Scanned Patient Profile */}
+              {scannedPatient && (
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
+                  <div className="bg-primary/5 px-6 py-4 border-b border-border">
+                    <h3 className="font-bold text-foreground flex items-center gap-2">
+                      <User className="w-5 h-5 text-primary" /> Patient Profile
+                    </h3>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    {/* Read-only patient info */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <ReadOnlyField label="Full Name" value={scannedPatient.full_name} />
+                      <ReadOnlyField label="Age" value={scannedPatient.age?.toString()} />
+                      <ReadOnlyField label="Blood Type" value={scannedPatient.blood_type} />
+                      <ReadOnlyField label="Phone" value={scannedPatient.phone} />
+                      <ReadOnlyField label="Chronic Diseases" value={scannedPatient.chronic_diseases} />
+                      <ReadOnlyField label="Current Medications" value={scannedPatient.current_medications} />
+                    </div>
+
+                    {/* Editable fields */}
+                    <div className="border-t border-border pt-6 space-y-4">
+                      <h4 className="font-bold text-foreground flex items-center gap-2">
+                        <Stethoscope className="w-4 h-4 text-primary" /> Add Medical Record
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <Label>Diagnosis Notes *</Label>
+                          <textarea
+                            className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            placeholder="Enter diagnosis details..."
+                            value={diagnosisNotes}
+                            onChange={(e) => setDiagnosisNotes(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Prescribed Medications</Label>
+                          <textarea
+                            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            placeholder="Enter prescribed medications..."
+                            value={prescribedMeds}
+                            onChange={(e) => setPrescribedMeds(e.target.value)}
+                          />
+                        </div>
+                        <Button onClick={handleSaveRecord} disabled={savingRecord} className="gap-2">
+                          {savingRecord ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          Save Medical Record
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -339,6 +564,15 @@ function InfoItem({ label, value }: { label: string; value: string | null }) {
     <div>
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
       <p className="text-foreground font-medium mt-0.5">{value || "—"}</p>
+    </div>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-foreground font-medium bg-muted/50 rounded-md px-3 py-2 text-sm">{value || "—"}</p>
     </div>
   );
 }
