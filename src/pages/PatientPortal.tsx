@@ -8,7 +8,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   User, FileText, QrCode, LogOut, Plus,
   Calendar, Pill, FlaskConical, Radiation, Scissors,
-  AlertTriangle, Stethoscope, RefreshCw, Loader2
+  AlertTriangle, Stethoscope, RefreshCw, Loader2, Activity
 } from "lucide-react";
 
 interface PatientProfile {
@@ -21,6 +21,9 @@ interface PatientProfile {
   address: string | null;
   emergency_contact: string | null;
   emergency_phone: string | null;
+  age: number | null;
+  chronic_diseases: string | null;
+  current_medications: string | null;
 }
 
 interface MedicalRecord {
@@ -39,7 +42,7 @@ interface MedicalRecord {
   created_at: string;
 }
 
-interface QRCode {
+interface QRCodeData {
   id: string;
   token: string;
 }
@@ -55,7 +58,7 @@ export default function PatientPortal() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
-  const [qrCode, setQrCode] = useState<QRCode | null>(null);
+  const [qrCode, setQrCode] = useState<QRCodeData | null>(null);
   const [generatingQR, setGeneratingQR] = useState(false);
 
   const fetchData = useCallback(async (profileId: string) => {
@@ -83,13 +86,15 @@ export default function PatientPortal() {
         .maybeSingle();
 
       if (error || !profileData) {
-        toast({ title: "لم يتم العثور على الملف الشخصي", variant: "destructive" });
+        toast({ title: "Profile not found", variant: "destructive" });
         navigate("/patient-auth");
         return;
       }
 
-      setProfile(profileData as PatientProfile);
-      await fetchData(profileData.id);
+      const typedProfile = profileData as PatientProfile;
+      setProfile(typedProfile);
+      localStorage.setItem("patient_profile", JSON.stringify(typedProfile));
+      await fetchData(typedProfile.id);
       setLoading(false);
     };
     init();
@@ -105,18 +110,30 @@ export default function PatientPortal() {
       .single();
 
     if (error) {
-      toast({ title: "خطأ في إنشاء QR", description: error.message, variant: "destructive" });
+      toast({ title: "Error generating QR", description: error.message, variant: "destructive" });
     } else {
-      setQrCode(data as QRCode);
-      toast({ title: "تم إنشاء QR Code بنجاح" });
+      setQrCode(data as QRCodeData);
+      toast({ title: "QR Code generated successfully!" });
     }
     setGeneratingQR(false);
   };
 
   const handleLogout = async () => {
+    localStorage.removeItem("patient_profile");
     await supabase.auth.signOut();
     navigate("/patient-auth");
   };
+
+  // Build QR data with patient medical info
+  const qrPayload = profile ? JSON.stringify({
+    id: profile.id,
+    name: profile.full_name,
+    age: profile.age,
+    blood_type: profile.blood_type,
+    chronic_diseases: profile.chronic_diseases,
+    current_medications: profile.current_medications,
+    token: qrCode?.token,
+  }) : "";
 
   const qrUrl = qrCode
     ? `${window.location.origin}/doctor-view?token=${qrCode.token}`
@@ -134,7 +151,7 @@ export default function PatientPortal() {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-4 py-8" dir="rtl">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -142,25 +159,29 @@ export default function PatientPortal() {
               <User className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">{profile?.full_name}</h1>
-              <p className="text-sm text-muted-foreground">بوابة المريض</p>
+              <h1 className="text-xl font-bold text-foreground">Hello, {profile?.full_name}</h1>
+              <p className="text-sm text-muted-foreground">Patient Portal</p>
             </div>
           </div>
           <Button variant="outline" onClick={handleLogout} className="gap-2">
             <LogOut className="w-4 h-4" />
-            تسجيل الخروج
+            Sign Out
           </Button>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-card rounded-xl border border-border p-4 text-center">
             <p className="text-2xl font-bold text-primary">{records.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">سجل طبي</p>
+            <p className="text-xs text-muted-foreground mt-1">Medical Records</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4 text-center">
             <p className="text-2xl font-bold text-primary">{profile?.blood_type || "—"}</p>
-            <p className="text-xs text-muted-foreground mt-1">فصيلة الدم</p>
+            <p className="text-xs text-muted-foreground mt-1">Blood Type</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4 text-center">
+            <p className="text-2xl font-bold text-primary">{profile?.age || "—"}</p>
+            <p className="text-xs text-muted-foreground mt-1">Age</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4 text-center">
             <p className="text-2xl font-bold text-primary">{qrCode ? "✓" : "—"}</p>
@@ -171,8 +192,8 @@ export default function PatientPortal() {
         {/* Tabs */}
         <div className="flex gap-2 bg-muted p-1 rounded-lg mb-6">
           {[
-            { key: "profile", label: "الملف الشخصي", icon: User },
-            { key: "records", label: "السجل الطبي", icon: FileText },
+            { key: "profile", label: "Profile", icon: User },
+            { key: "records", label: "Medical Records", icon: FileText },
             { key: "qr", label: "QR Code", icon: QrCode },
           ].map(({ key, label, icon: Icon }) => (
             <button
@@ -191,15 +212,25 @@ export default function PatientPortal() {
         {/* Profile Tab */}
         {activeTab === "profile" && profile && (
           <div className="bg-card rounded-xl border border-border p-6 space-y-4">
-            <h2 className="text-lg font-bold text-foreground mb-4">المعلومات الشخصية</h2>
+            <h2 className="text-lg font-bold text-foreground mb-4">Personal & Medical Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InfoRow label="الاسم الكامل" value={profile.full_name} />
-              <InfoRow label="رقم الهاتف" value={profile.phone} />
-              <InfoRow label="تاريخ الميلاد" value={profile.date_of_birth} />
-              <InfoRow label="فصيلة الدم" value={profile.blood_type} />
-              <InfoRow label="العنوان" value={profile.address} />
-              <InfoRow label="جهة الطوارئ" value={profile.emergency_contact} />
-              <InfoRow label="هاتف الطوارئ" value={profile.emergency_phone} />
+              <InfoRow label="Full Name" value={profile.full_name} />
+              <InfoRow label="Phone" value={profile.phone} />
+              <InfoRow label="Age" value={profile.age?.toString()} />
+              <InfoRow label="Blood Type" value={profile.blood_type} />
+              <InfoRow label="Address" value={profile.address} />
+              <InfoRow label="Date of Birth" value={profile.date_of_birth} />
+            </div>
+            <div className="border-t border-border pt-4 mt-4">
+              <h3 className="text-md font-bold text-foreground mb-3 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" /> Medical Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoRow label="Chronic Diseases" value={profile.chronic_diseases} />
+                <InfoRow label="Current Medications" value={profile.current_medications} />
+                <InfoRow label="Emergency Contact" value={profile.emergency_contact} />
+                <InfoRow label="Emergency Phone" value={profile.emergency_phone} />
+              </div>
             </div>
           </div>
         )}
@@ -210,8 +241,8 @@ export default function PatientPortal() {
             {records.length === 0 ? (
               <div className="bg-card rounded-xl border border-border p-12 text-center">
                 <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">لا توجد سجلات طبية بعد</p>
-                <p className="text-xs text-muted-foreground mt-2">ستظهر هنا بعد كل زيارة للطبيب</p>
+                <p className="text-muted-foreground">No medical records yet</p>
+                <p className="text-xs text-muted-foreground mt-2">Records will appear here after each doctor visit</p>
               </div>
             ) : (
               records.map((rec) => (
@@ -225,21 +256,26 @@ export default function PatientPortal() {
         {activeTab === "qr" && (
           <div className="bg-card rounded-xl border border-border p-8 text-center space-y-6">
             <div>
-              <h2 className="text-lg font-bold text-foreground">QR Code الخاص بك</h2>
+              <h2 className="text-lg font-bold text-foreground">Your QR Code</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                يستطيع الطبيب مسح هذا الكود لرؤية ملفك الطبي الكامل وإضافة سجلات جديدة
+                Your doctor can scan this code to view your full medical profile and add new records
               </p>
             </div>
 
             {qrCode ? (
               <div className="space-y-4">
                 <div className="inline-block p-4 bg-white rounded-2xl shadow-lg border border-border">
-                  <QRCodeSVG value={qrUrl} size={220} level="H" includeMargin />
+                  <QRCodeSVG value={qrPayload || qrUrl} size={220} level="H" includeMargin />
                 </div>
-                <p className="text-xs text-muted-foreground break-all max-w-sm mx-auto">{qrUrl}</p>
+                <div className="bg-muted rounded-lg p-3 max-w-sm mx-auto text-left text-xs space-y-1">
+                  <p><span className="font-bold">ID:</span> {profile?.id?.slice(0, 8)}...</p>
+                  <p><span className="font-bold">Name:</span> {profile?.full_name}</p>
+                  <p><span className="font-bold">Age:</span> {profile?.age || "—"}</p>
+                  <p><span className="font-bold">Blood Type:</span> {profile?.blood_type || "—"}</p>
+                </div>
                 <Button variant="outline" onClick={generateQR} disabled={generatingQR} className="gap-2">
                   <RefreshCw className="w-4 h-4" />
-                  تجديد الكود
+                  Regenerate Code
                 </Button>
               </div>
             ) : (
@@ -249,15 +285,15 @@ export default function PatientPortal() {
                 </div>
                 <Button onClick={generateQR} disabled={generatingQR} className="gap-2">
                   {generatingQR ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  إنشاء QR Code
+                  Generate QR Code
                 </Button>
               </div>
             )}
 
-            <div className="bg-secondary border border-border rounded-lg p-4 text-right">
-              <p className="text-foreground text-sm font-semibold">⚠️ تنبيه أمني</p>
+            <div className="bg-secondary border border-border rounded-lg p-4 text-left">
+              <p className="text-foreground text-sm font-semibold">⚠️ Security Notice</p>
               <p className="text-muted-foreground text-xs mt-1">
-                لا تشارك هذا الكود مع أشخاص غير موثوق بهم. أي شخص يمسحه يستطيع رؤية سجلك الطبي الكامل.
+                Do not share this code with untrusted individuals. Anyone who scans it can view your full medical record.
               </p>
             </div>
           </div>
@@ -280,19 +316,19 @@ function MedicalRecordCard({ record }: { record: MedicalRecord }) {
   const [expanded, setExpanded] = useState(false);
 
   const fields = [
-    { icon: Stethoscope, label: "التشخيص", value: record.diagnosis },
-    { icon: Pill, label: "الأدوية", value: record.medications },
-    { icon: FlaskConical, label: "التحاليل", value: record.lab_results },
-    { icon: Radiation, label: "الأشعة", value: record.radiology },
-    { icon: Scissors, label: "العمليات", value: record.surgeries },
-    { icon: AlertTriangle, label: "الحساسية", value: record.allergies },
-    { icon: FileText, label: "ملاحظات", value: record.notes },
+    { icon: Stethoscope, label: "Diagnosis", value: record.diagnosis },
+    { icon: Pill, label: "Medications", value: record.medications },
+    { icon: FlaskConical, label: "Lab Results", value: record.lab_results },
+    { icon: Radiation, label: "Radiology", value: record.radiology },
+    { icon: Scissors, label: "Surgeries", value: record.surgeries },
+    { icon: AlertTriangle, label: "Allergies", value: record.allergies },
+    { icon: FileText, label: "Notes", value: record.notes },
   ].filter(f => f.value);
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
       <button
-        className="w-full text-right p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        className="w-full text-left p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3">
@@ -302,7 +338,7 @@ function MedicalRecordCard({ record }: { record: MedicalRecord }) {
           <div>
             <p className="font-semibold text-foreground">{record.visit_date}</p>
             <p className="text-sm text-muted-foreground">
-              {record.doctor_name && `د. ${record.doctor_name}`}
+              {record.doctor_name && `Dr. ${record.doctor_name}`}
               {record.department && ` • ${record.department}`}
             </p>
           </div>
@@ -311,7 +347,7 @@ function MedicalRecordCard({ record }: { record: MedicalRecord }) {
           <span className={`text-xs px-2 py-1 rounded-full ${
             record.created_by === "doctor_scan" ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"
           }`}>
-            {record.created_by === "doctor_scan" ? "طبيب" : "المريض"}
+            {record.created_by === "doctor_scan" ? "Doctor" : "Patient"}
           </span>
           <span className="text-muted-foreground">{expanded ? "▲" : "▼"}</span>
         </div>

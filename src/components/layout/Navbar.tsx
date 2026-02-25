@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Phone, Clock, MapPin, ExternalLink } from "lucide-react";
+import { Menu, X, Phone, Clock, MapPin, ExternalLink, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -16,6 +17,42 @@ const navLinks = [
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const [patientName, setPatientName] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check localStorage first for quick display
+    const cached = localStorage.getItem("patient_profile");
+    if (cached) {
+      try {
+        const profile = JSON.parse(cached);
+        setPatientName(profile.full_name);
+      } catch { /* ignore */ }
+    }
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        setPatientName(null);
+        localStorage.removeItem("patient_profile");
+        return;
+      }
+      if (session) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const db = supabase as any;
+        const { data: profile } = await db
+          .from("patient_profiles")
+          .select("full_name")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (profile) {
+          setPatientName(profile.full_name);
+          localStorage.setItem("patient_profile", JSON.stringify(profile));
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <>
@@ -30,10 +67,17 @@ export function Navbar() {
               <MapPin className="w-4 h-4" /> 123 Medical Center Dr, City
             </span>
           </div>
-          <div className="flex gap-6 font-medium">
-            <Link to="/patient-auth" className="hover:text-white/80 transition-colors flex items-center gap-1">
-              Patient Portal <ExternalLink className="w-3 h-3" />
-            </Link>
+          <div className="flex gap-6 font-medium items-center">
+            {patientName ? (
+              <Link to="/patient-portal" className="hover:text-white/80 transition-colors flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                Hello, {patientName}
+              </Link>
+            ) : (
+              <Link to="/patient-auth" className="hover:text-white/80 transition-colors flex items-center gap-1">
+                Patient Portal <ExternalLink className="w-3 h-3" />
+              </Link>
+            )}
             <Link to="/doctor-auth" className="hover:text-white/80 transition-colors flex items-center gap-1">
               Doctor Portal <ExternalLink className="w-3 h-3" />
             </Link>
@@ -78,6 +122,12 @@ export function Navbar() {
 
             {/* Desktop Actions */}
             <div className="hidden lg:flex items-center gap-2">
+              {patientName && (
+                <Link to="/patient-portal" className="flex items-center gap-1.5 text-sm font-semibold text-primary mr-2">
+                  <User className="w-4 h-4" />
+                  {patientName}
+                </Link>
+              )}
               <Button asChild>
                 <Link to="/appointments">Book Appointment</Link>
               </Button>
@@ -100,6 +150,16 @@ export function Navbar() {
         {isOpen && (
           <div className="lg:hidden border-t border-border bg-white dark:bg-card">
             <nav className="flex flex-col p-4 space-y-2">
+              {patientName && (
+                <Link
+                  to="/patient-portal"
+                  className="text-sm font-semibold py-2 px-4 rounded-lg bg-primary/10 text-primary flex items-center gap-2"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <User className="w-4 h-4" />
+                  Hello, {patientName}
+                </Link>
+              )}
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
